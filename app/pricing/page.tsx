@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Navbar } from "@/components/landing/navbar";
 import StellarFooter from "@/components/landing/StellarFooter";
+import { CtaSection } from "@/components/cta/cta-section";
 
 export const metadata: Metadata = {
   title: "Pricing | Stellar Batch Pay",
@@ -28,7 +29,14 @@ export default function PricingPage() {
         <p className="text-[#9BA1B0] text-sm sm:text-base md:text-[18px] max-w-3xl font-normal leading-normal">
           Scale your payments efficiently with low transaction costs and automated workflows.
         </p>
-        
+      </section>
+      <section>
+        <CtaSection
+          title="Ready to Start Sending?"
+          description="Join thousands of businesses using Stellar BatchPay for efficient crypto payments."
+          primaryButtonText="Start Sending Payments"
+          secondaryButtonText="View Documentation"
+        />
       </section>
       <StellarFooter />
     </main>
