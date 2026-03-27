@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import { useState, ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,18 +12,58 @@ import {
   BookOpen,
 } from "lucide-react";
 import Link from "next/link";
+import { parseInput } from "@/lib/stellar/parser";
+import { getBatchSummary } from "@/lib/stellar/batcher";
+import { PaymentInstruction } from "@/lib/stellar/types";
+import { toast } from "sonner"; // Assuming sonner is used based on common patterns, if not I'll check
 
 export default function NewBatchPaymentPage() {
   const [selectedNetwork, setSelectedNetwork] = useState<"testnet" | "mainnet">(
     "testnet",
   );
   const [file, setFile] = useState<File | null>(null);
+  const [instructions, setInstructions] = useState<PaymentInstruction[]>([]);
+  const [summary, setSummary] = useState<{
+    recipientCount: number;
+    validCount: number;
+    invalidCount: number;
+    totalAmount: string;
+    assetBreakdown: Record<string, number>;
+  } | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      setIsParsing(true);
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target?.result as string;
+          const format = selectedFile.name.endsWith(".json") ? "json" : "csv";
+          const parsedInstructions = parseInput(content, format);
+          
+          setInstructions(parsedInstructions);
+          const batchSummary = getBatchSummary(parsedInstructions);
+          setSummary(batchSummary);
+          
+          toast.success("File parsed successfully");
+        } catch (error) {
+          console.error("Failed to parse file:", error);
+          toast.error(error instanceof Error ? error.message : "Failed to parse file");
+          setInstructions([]);
+          setSummary(null);
+        } finally {
+          setIsParsing(false);
+        }
+      };
+      reader.readAsText(selectedFile);
     }
   };
+
+  const estimatedFees = summary ? (summary.recipientCount * 0.005).toFixed(3) : "0.000";
 
   return (
     <div className="space-y-6">
@@ -59,29 +97,42 @@ export default function NewBatchPaymentPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border-2 border-dashed border-slate-700 rounded-lg p-12 text-center">
+              <div className="border-2 border-dashed border-slate-700 rounded-lg p-12 text-center relative">
+                {isParsing && (
+                  <div className="absolute inset-0 bg-slate-950/50 flex items-center justify-center rounded-lg z-10">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-white text-sm font-medium">Parsing file...</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center">
-                    <Upload className="w-8 h-8 text-slate-400" />
+                    {file ? (
+                      <Check className="w-8 h-8 text-emerald-500" />
+                    ) : (
+                      <Upload className="w-8 h-8 text-slate-400" />
+                    )}
                   </div>
                   <div>
                     <p className="text-white font-medium mb-1">
-                      Drag and drop your file here
+                      {file ? file.name : "Drag and drop your file here"}
                     </p>
                     <p className="text-slate-400 text-sm mb-4">
-                      or click to browse
+                      {file ? `${(file.size / 1024).toFixed(1)} KB` : "or click to browse"}
                     </p>
                   </div>
                   <label htmlFor="file-upload">
                     <Button
                       type="button"
                       className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                      disabled={isParsing}
                       onClick={() =>
                         document.getElementById("file-upload")?.click()
                       }
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      Choose File
+                      {file ? "Change File" : "Choose File"}
                     </Button>
                   </label>
                   <input
@@ -189,27 +240,34 @@ export default function NewBatchPaymentPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Total Recipients</span>
-                <span className="text-white font-semibold text-lg">25</span>
+                <span className="text-white font-semibold text-lg">
+                  {summary ? summary.recipientCount : "0"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Valid Payments</span>
                 <span className="text-emerald-500 font-semibold text-lg">
-                  23
+                  {summary ? summary.validCount : "0"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Invalid Payments</span>
-                <span className="text-red-500 font-semibold text-lg">2</span>
+                <span className="text-red-500 font-semibold text-lg">
+                  {summary ? summary.invalidCount : "0"}
+                </span>
               </div>
               <div className="border-t border-slate-800 pt-4 mt-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-slate-400">Estimated Fees</span>
-                  <span className="text-white font-medium">0.125 XLM</span>
+                  <span className="text-white font-medium">{estimatedFees} XLM</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Total Payout</span>
                   <span className="text-white font-bold text-xl">
-                    2,847.50 XLM
+                    {summary ? parseFloat(summary.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}{" "}
+                    {summary && Object.keys(summary.assetBreakdown).length === 1 
+                      ? Object.keys(summary.assetBreakdown)[0] 
+                      : "XLM"}
                   </span>
                 </div>
               </div>
@@ -217,7 +275,10 @@ export default function NewBatchPaymentPage() {
           </Card>
 
           {/* Submit Button */}
-          <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white text-base font-semibold">
+          <Button 
+            className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white text-base font-semibold"
+            disabled={!summary || summary.validCount === 0 || isParsing}
+          >
             <Send className="w-5 h-5 mr-2" />
             Submit Batch Payment
           </Button>

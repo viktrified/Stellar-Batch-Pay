@@ -63,20 +63,33 @@ export function parseAsset(assetString: string): Asset {
   };
 }
 
+import { validatePaymentInstruction } from './validator';
+
 /**
  * Get summary statistics for a batch of payments
  */
 export function getBatchSummary(instructions: PaymentInstruction[]) {
   let totalAmount = 0;
+  let validCount = 0;
+  let invalidCount = 0;
   const assetCount = new Map<string, number>();
 
   for (const instruction of instructions) {
     totalAmount += parseFloat(instruction.amount);
     assetCount.set(instruction.asset, (assetCount.get(instruction.asset) || 0) + 1);
+
+    const validation = validatePaymentInstruction(instruction);
+    if (validation.valid) {
+      validCount++;
+    } else {
+      invalidCount++;
+    }
   }
 
   return {
     recipientCount: instructions.length,
+    validCount,
+    invalidCount,
     totalAmount: totalAmount.toString(),
     assetBreakdown: Object.fromEntries(assetCount),
   };
