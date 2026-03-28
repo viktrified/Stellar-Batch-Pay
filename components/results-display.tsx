@@ -69,15 +69,29 @@ export function ResultsDisplay({ result, onRetry }: ResultsDisplayProps) {
                   <td className="p-3 font-mono text-xs">{payment.recipient.slice(0, 20)}...</td>
                   <td className="text-right p-3 font-mono">{formatAmount(payment.amount)}</td>
                   <td className="text-center p-3">
-                    <span
-                      className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                        payment.status === 'success'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-                      }`}
-                    >
-                      {payment.status}
-                    </span>
+                    <div className="flex flex-col items-center gap-1">
+                      <span
+                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                          payment.status === 'success'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                        }`}
+                      >
+                        {payment.status}
+                      </span>
+                      {payment.transactionHash && (
+                        <a
+                          href={result.network === 'testnet' 
+                            ? `https://stellar.expert/explorer/testnet/tx/${payment.transactionHash}`
+                            : `https://stellar.expert/explorer/public/tx/${payment.transactionHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                        >
+                          Check Status
+                        </a>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
